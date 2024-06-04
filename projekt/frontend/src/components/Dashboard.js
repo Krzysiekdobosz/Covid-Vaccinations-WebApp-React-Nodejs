@@ -3,15 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-function Dashboard() {
+const Dashboard = () => {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [selectedAttributes, setSelectedAttributes] = useState(['date', 'total_vaccinations']); // Domyślnie wybrane atrybuty
+  const [selectedAttributes, setSelectedAttributes] = useState(['date', 'total_vaccinations']);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(100); // Domyślny rozmiar strony
-  const [data, setData] = useState([]); // Stan przechowujący dane z serwera
-  const [selectedCountries, setSelectedCountries] = useState([]); // Stan przechowujący wybrane kraje
-  const [availableCountries, setAvailableCountries] = useState([]); // Lista dostępnych krajów
+  const [pageSize, setPageSize] = useState(100);
+  const [data, setData] = useState([]);
+  const [selectedCountries, setSelectedCountries] = useState([]);
+  const [availableCountries, setAvailableCountries] = useState([]);
+  const [availableAttributes, setAvailableAttributes] = useState([
+    'date', 'location', 'total_vaccinations', 'people_vaccinated', 'people_fully_vaccinated', 
+    'total_boosters', 'daily_vaccinations_raw', 'daily_vaccinations', 
+    'total_vaccinations_per_hundred', 'people_vaccinated_per_hundred', 
+    'people_fully_vaccinated_per_hundred', 'total_boosters_per_hundred', 
+    'daily_vaccinations_per_million', 'daily_people_vaccinated', 
+    'daily_people_vaccinated_per_hundred'
+  ]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -19,7 +27,7 @@ function Dashboard() {
       navigate('/login');
     } else {
       setIsLoggedIn(true);
-      fetchCountries(); // Pobierz listę dostępnych krajów
+      fetchCountries();
     }
   }, [navigate]);
 
@@ -31,10 +39,10 @@ function Dashboard() {
 
   const fetchCountries = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/countries'); // Dodaj endpoint do pobierania dostępnych krajów
+      const response = await axios.get('http://localhost:5000/countries');
       setAvailableCountries(response.data);
     } catch (error) {
-      console.error('Błąd podczas pobierania listy krajów:', error);
+      console.error('Error fetching countries:', error);
     }
   };
 
@@ -50,7 +58,7 @@ function Dashboard() {
       });
       setData(response.data);
     } catch (error) {
-      console.error('Błąd podczas pobierania danych:', error);
+      console.error('Error fetching data:', error);
     }
   };
 
@@ -90,66 +98,15 @@ function Dashboard() {
     <div>
       <h2>Przetwarzamy dane</h2>
       <form>
-        <label>
-          <input type="checkbox" value="date" onChange={handleAttributeChange} checked={selectedAttributes.includes('date')} />
-          Data
-        </label>
-        <label>
-          <input type="checkbox" value="location" onChange={handleAttributeChange} checked={selectedAttributes.includes('location')} />
-          Lokalizacja
-        </label>
-        <label>
-          <input type="checkbox" value="total_vaccinations" onChange={handleAttributeChange} checked={selectedAttributes.includes('total_vaccinations')} />
-          Całkowite szczepienia
-        </label>
-        <label>
-          <input type="checkbox" value="people_vaccinated" onChange={handleAttributeChange} checked={selectedAttributes.includes('people_vaccinated')} />
-          Liczba zaszczepionych osób
-        </label>
-        <label>
-          <input type="checkbox" value="people_fully_vaccinated" onChange={handleAttributeChange} checked={selectedAttributes.includes('people_fully_vaccinated')} />
-          Liczba w pełni zaszczepionych osób
-        </label>
-        <label>
-          <input type="checkbox" value="total_boosters" onChange={handleAttributeChange} checked={selectedAttributes.includes('total_boosters')} />
-          Łączna liczba dawek przypominających
-        </label>
-        <label>
-          <input type="checkbox" value="daily_vaccinations_raw" onChange={handleAttributeChange} checked={selectedAttributes.includes('daily_vaccinations_raw')} />
-          Dzienna liczba szczepień (surowe dane)
-        </label>
-        <label>
-          <input type="checkbox" value="daily_vaccinations" onChange={handleAttributeChange} checked={selectedAttributes.includes('daily_vaccinations')} />
-          Średnia dzienna liczba szczepień
-        </label>
-        <label>
-          <input type="checkbox" value="total_vaccinations_per_hundred" onChange={handleAttributeChange} checked={selectedAttributes.includes('total_vaccinations_per_hundred')} />
-          Całkowite szczepienia na 100 osób
-        </label>
-        <label>
-          <input type="checkbox" value="people_vaccinated_per_hundred" onChange={handleAttributeChange} checked={selectedAttributes.includes('people_vaccinated_per_hundred')} />
-          Liczba zaszczepionych osób na 100 osób
-        </label>
-        <label>
-          <input type="checkbox" value="people_fully_vaccinated_per_hundred" onChange={handleAttributeChange} checked={selectedAttributes.includes('people_fully_vaccinated_per_hundred')} />
-          Liczba w pełni zaszczepionych osób na 100 osób
-        </label>
-        <label>
-          <input type="checkbox" value="total_boosters_per_hundred" onChange={handleAttributeChange} checked={selectedAttributes.includes('total_boosters_per_hundred')} />
-          Łączna liczba dawek przypominających na 100 osób
-        </label>
-        <label>
-          <input type="checkbox" value="daily_vaccinations_per_million" onChange={handleAttributeChange} checked={selectedAttributes.includes('daily_vaccinations_per_million')} />
-          Dzienna liczba szczepień na milion osób
-        </label>
-        <label>
-          <input type="checkbox" value="daily_people_vaccinated" onChange={handleAttributeChange} checked={selectedAttributes.includes('daily_people_vaccinated')} />
-          Dzienna liczba zaszczepionych osób
-        </label>
-        <label>
-          <input type="checkbox" value="daily_people_vaccinated_per_hundred" onChange={handleAttributeChange} checked={selectedAttributes.includes('daily_people_vaccinated_per_hundred')} />
-          Dzienna liczba zaszczepionych osób na 100 osób
-        </label>
+        <div>
+          <h3>Wybierz atrybuty:</h3>
+          {availableAttributes.map(attr => (
+            <label key={attr}>
+              <input type="checkbox" value={attr} onChange={handleAttributeChange} checked={selectedAttributes.includes(attr)} />
+              {attr}
+            </label>
+          ))}
+        </div>
         <div>
           <h3>Wybierz kraje:</h3>
           {availableCountries.map((country) => (
@@ -182,15 +139,14 @@ function Dashboard() {
             <YAxis />
             <Tooltip />
             <Legend />
-            {selectedCountries.map((country) => (
-              <Line key={country} type="monotone" dataKey={`total_vaccinations_${country}`} stroke="#8884d8" activeDot={{ r: 8 }} />
+            {selectedAttributes.map(attr => (
+              <Line key={attr} type="monotone" dataKey={attr} stroke="#8884d8" activeDot={{ r: 8 }} />
             ))}
-            {/* Dodaj więcej linii dla innych atrybutów */}
           </LineChart>
         </ResponsiveContainer>
       </div>
     </div>
   );
-}
+};
 
 export default Dashboard;

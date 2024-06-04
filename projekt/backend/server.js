@@ -12,7 +12,7 @@ const User = require('./models/User');
 
 const { exec } = require('child_process');
 
-
+const { Op } = require('sequelize');
 
 
 const app = express();
@@ -52,32 +52,105 @@ const Vaccination = require('./models/Vaccination')(sequelize, require('sequeliz
 app.use(cors());
 app.use(bodyParser.json());
 // Aktualizacja endpointu /data, aby zwracał paginowane wyniki
+
+
+
 app.get('/data', async (req, res) => {
-    try {
-      // Pobieramy zapytanie od użytkownika z parametrami atrybutów i numerem strony
-      const selectedAttributes = req.query.attributes || [];
-      const page = parseInt(req.query.page) || 1;
-      const pageSize = parseInt(req.query.pageSize) || 500; // Domyślny rozmiar strony: 50
-  
-      // Obliczamy ofset na podstawie numeru strony i rozmiaru strony
-      const offset = (page - 1) * pageSize;
-      
-      // Jeśli nie wybrano żadnych atrybutów, zwracamy wszystkie
-      const attributesToSelect = selectedAttributes.length > 0 ? selectedAttributes : Object.keys(Vaccination.rawAttributes);
-  
-      // Pobieramy dane z bazy danych, wybierając tylko wybrane atrybuty i uwzględniając paginację
-      const data = await Vaccination.findAll({
-        attributes: attributesToSelect,
-        limit: pageSize,
-        offset: offset
-      });
-  
-      res.json(data);
-    } catch (error) {
-      console.error('Błąd podczas pobierania danych:', error);
-      res.status(500).send('Wystąpił błąd podczas pobierania danych.');
-    }
+  try {
+    const selectedAttributes = req.query.attributes || [];
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 50;
+    const countries = req.query.countries || [];
+    const offset = (page - 1) * pageSize;
+    const attributesToSelect = selectedAttributes.length > 0 ? selectedAttributes : Object.keys(Vaccination.rawAttributes);
+
+    const whereCondition = countries.length > 0 ? { location: countries } : {};
+    
+    const data = await Vaccination.findAll({
+      attributes: attributesToSelect,
+      where: whereCondition,
+      limit: pageSize,
+      offset: offset
+    });
+    
+    res.json(data);
+  } catch (error) {
+    console.error('Błąd podczas pobierania danych:', error);
+    res.status(500).send('Wystąpił błąd podczas pobierania danych.');
+  }
 });
+
+app.get('/countries', async (req, res) => {
+  try {
+    const countries = await Vaccination.findAll({
+      attributes: ['location'],
+      group: ['location']
+    });
+    res.json(countries.map(country => country.location));
+  } catch (error) {
+    console.error('Błąd podczas pobierania krajów:', error);
+    res.status(500).send('Wystąpił błąd podczas pobierania krajów.');
+  }
+});
+
+
+//próba pobrania wszystkich danych
+
+app.get('/dataall', async (req, res) => {
+  try {
+    let selectedCountry = req.query.country || 'Poland'; // Domyślnie wybieramy Polskę
+    const data = await Vaccination.findAll({
+      where: {
+        location: selectedCountry
+      },
+      attributes: [
+        'location',
+        [sequelize.fn('sum', sequelize.col('total_vaccinations')), 'total_vaccinations'],
+        [sequelize.fn('sum', sequelize.col('people_vaccinated')), 'people_vaccinated'],
+        [sequelize.fn('sum', sequelize.col('people_fully_vaccinated')), 'people_fully_vaccinated'],
+        [sequelize.fn('sum', sequelize.col('total_boosters')), 'total_boosters'],
+        [sequelize.fn('avg', sequelize.col('daily_vaccinations_raw')), 'avg_daily_vaccinations_raw'],
+        [sequelize.fn('avg', sequelize.col('daily_vaccinations')), 'avg_daily_vaccinations'],
+        [sequelize.fn('avg', sequelize.col('total_vaccinations_per_hundred')), 'avg_total_vaccinations_per_hundred'],
+        [sequelize.fn('avg', sequelize.col('people_vaccinated_per_hundred')), 'avg_people_vaccinated_per_hundred'],
+        [sequelize.fn('avg', sequelize.col('people_fully_vaccinated_per_hundred')), 'avg_people_fully_vaccinated_per_hundred'],
+        [sequelize.fn('avg', sequelize.col('total_boosters_per_hundred')), 'avg_total_boosters_per_hundred'],
+        [sequelize.fn('avg', sequelize.col('daily_vaccinations_per_million')), 'avg_daily_vaccinations_per_million'],
+        [sequelize.fn('avg', sequelize.col('daily_people_vaccinated')), 'avg_daily_people_vaccinated'],
+        [sequelize.fn('avg', sequelize.col('daily_people_vaccinated_per_hundred')), 'avg_daily_people_vaccinated_per_hundred']
+      ]
+    });
+
+    if (!data) {
+      return res.status(404).send('Brak danych dla wybranego kraju.');
+    }
+
+    // Zwracamy tylko pierwszy rekord, ponieważ wszystkie wartości są zsumowane w jednym wierszu
+    const averagedData = {
+      ...data[0].dataValues,
+      avg_daily_vaccinations_raw: data[0].dataValues.avg_daily_vaccinations_raw / data.length,
+      avg_daily_vaccinations: data[0].dataValues.avg_daily_vaccinations / data.length,
+      avg_total_vaccinations_per_hundred: data[0].dataValues.avg_total_vaccinations_per_hundred / data.length,
+      avg_people_vaccinated_per_hundred: data[0].dataValues.avg_people_vaccinated_per_hundred / data.length,
+      avg_people_fully_vaccinated_per_hundred: data[0].dataValues.avg_people_fully_vaccinated_per_hundred / data.length,
+      avg_total_boosters_per_hundred: data[0].dataValues.avg_total_boosters_per_hundred / data.length,
+      avg_daily_vaccinations_per_million: data[0].dataValues.avg_daily_vaccinations_per_million / data.length,
+      avg_daily_people_vaccinated: data[0].dataValues.avg_daily_people_vaccinated / data.length,
+      avg_daily_people_vaccinated_per_hundred: data[0].dataValues.avg_daily_people_vaccinated_per_hundred / data.length
+    };
+
+    res.json(averagedData);
+  } catch (error) {
+    console.error('Błąd podczas pobierania danych:', error);
+    res.status(500).send('Wystąpił błąd podczas pobierania danych.');
+  }
+});
+
+
+
+//
+
+
 // Endpoint do przesyłania pliku CSV
 app.post('/upload', async (req, res) => {
   try {
@@ -142,7 +215,7 @@ app.post('/login', [
   }
 });
 
-
+//
 ///pobieranie wykresy
 app.post('/generate-plot', (req, res) => {
   const { plotType } = req.body;
