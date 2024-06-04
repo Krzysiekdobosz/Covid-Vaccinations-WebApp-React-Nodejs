@@ -5,6 +5,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 import UploadData from './components/UploadData';
+import DataCsv from './components/DataCsv';
 function App() {
   return (
     <Router>
@@ -26,6 +27,10 @@ function App() {
             <li>
               <Link to="/upload-data">Upload Data</Link>
             </li>
+            <li>
+              <Link to="/data-csv">Data CSV</Link>  
+            </li>
+            
           </ul>
         </nav>
 
@@ -35,6 +40,7 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/upload-data" element={<UploadData />} />
+          <Route path='data-csv' element={<DataCsv />} />
         </Routes>
       </div>
     </Router>

@@ -10,6 +10,7 @@ const path = require('path');
 const sequelize = require('./config');
 const User = require('./models/User');
 
+const { exec } = require('child_process');
 
 
 
@@ -56,7 +57,7 @@ app.get('/data', async (req, res) => {
       // Pobieramy zapytanie od użytkownika z parametrami atrybutów i numerem strony
       const selectedAttributes = req.query.attributes || [];
       const page = parseInt(req.query.page) || 1;
-      const pageSize = parseInt(req.query.pageSize) || 100; // Domyślny rozmiar strony: 100
+      const pageSize = parseInt(req.query.pageSize) || 500; // Domyślny rozmiar strony: 50
   
       // Obliczamy ofset na podstawie numeru strony i rozmiaru strony
       const offset = (page - 1) * pageSize;
@@ -141,6 +142,40 @@ app.post('/login', [
   }
 });
 
+
+///pobieranie wykresy
+app.post('/generate-plot', (req, res) => {
+  const { plotType } = req.body;
+  const csvFilePath = path.join(__dirname, 'data', 'vaccinations.csv');
+  const outputFilePath = path.join(__dirname, 'data', `vaccination_plot_${plotType}.png`);
+  const scriptPath = path.join(__dirname, 'scripts', 'generate_plot.py');
+
+  exec(`python ${scriptPath} ${csvFilePath} ${outputFilePath} ${plotType}`, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Error generating plot: ${error.message}`);
+      return res.status(500).send('Error generating plot');
+    }
+
+    res.json({ plotUrl: `http://localhost:5000/data/vaccination_plot_${plotType}.png` });
+  });
+});
+
+app.use('/data', express.static(path.join(__dirname, 'data')));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+////
 sequelize.sync().then(() => {
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

@@ -1,27 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import 'chartjs-adapter-date-fns'; // adapter for time scale
-import Chart from './Chart';
-
-
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 function Dashboard() {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [data, setData] = useState([]);
-  const [selectedAttributes, setSelectedAttributes] = useState([]); // Stan przechowujący wybrane atrybuty
+  const [selectedAttributes, setSelectedAttributes] = useState(['date', 'total_vaccinations']); // Domyślnie wybrane atrybuty
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100); // Domyślny rozmiar strony
-
-  const fetchData = async () => {
-    try {
-      const response = await axios.get(`http://localhost:5000/data?page=${page}&pageSize=${pageSize}`);
-      setData(response.data);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    }
-  };
+  const [data, setData] = useState([]); // Stan przechowujący dane z serwera
+  const [selectedCountries, setSelectedCountries] = useState([]); // Stan przechowujący wybrane kraje
+  const [availableCountries, setAvailableCountries] = useState([]); // Lista dostępnych krajów
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -29,26 +19,63 @@ function Dashboard() {
       navigate('/login');
     } else {
       setIsLoggedIn(true);
+      fetchCountries(); // Pobierz listę dostępnych krajów
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
       fetchData();
     }
-  }, [navigate, page, pageSize]);
+  }, [isLoggedIn, page, pageSize, selectedAttributes, selectedCountries]);
 
-  // Obsługa zmiany zaznaczonych atrybutów w formularzu
-  const handleAttributeChange = (e) => {
-    const { value, checked } = e.target;
-    if (checked) {
-      setSelectedAttributes([...selectedAttributes, value]); // Dodaj atrybut do listy wybranych
-    } else {
-      setSelectedAttributes(selectedAttributes.filter(attr => attr !== value)); // Usuń atrybut z listy wybranych
+  const fetchCountries = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/countries'); // Dodaj endpoint do pobierania dostępnych krajów
+      setAvailableCountries(response.data);
+    } catch (error) {
+      console.error('Błąd podczas pobierania listy krajów:', error);
     }
   };
 
-  // Obsługa zmiany rozmiaru strony
+  const fetchData = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/data', {
+        params: {
+          attributes: selectedAttributes,
+          page: page,
+          pageSize: pageSize,
+          countries: selectedCountries,
+        },
+      });
+      setData(response.data);
+    } catch (error) {
+      console.error('Błąd podczas pobierania danych:', error);
+    }
+  };
+
+  const handleAttributeChange = (e) => {
+    const { value, checked } = e.target;
+    if (checked) {
+      setSelectedAttributes([...selectedAttributes, value]);
+    } else {
+      setSelectedAttributes(selectedAttributes.filter(attr => attr !== value));
+    }
+  };
+
+  const handleCountryChange = (e) => {
+    const { value, checked } = e.target;
+    if (checked) {
+      setSelectedCountries([...selectedCountries, value]);
+    } else {
+      setSelectedCountries(selectedCountries.filter(country => country !== value));
+    }
+  };
+
   const handlePageSizeChange = (e) => {
     setPageSize(parseInt(e.target.value));
   };
 
-  // Obsługa przycisków nawigacyjnych
   const handlePrevPage = () => {
     if (page > 1) {
       setPage(page - 1);
@@ -59,47 +86,80 @@ function Dashboard() {
     setPage(page + 1);
   };
 
-  const options = {
-    scales: {
-      x: {
-        type: 'time',
-        time: {
-          unit: 'day',
-          displayFormats: {
-            day: 'MMM D, YYYY', // Dodaj pełny rok do formatu daty
-          },
-        },
-        title: {
-          display: true,
-          text: 'Date',
-        },
-      },
-      y: {
-        title: {
-          display: true,
-          text: 'Selected Attribute',
-        },
-      },
-    },
-  };
-
-
-
-  
   return (
     <div>
       <h2>Przetwarzamy dane</h2>
       <form>
-        {/* Formularz do wyboru atrybutów */}
         <label>
-          <input type="checkbox" value="location" onChange={handleAttributeChange} /> Location
+          <input type="checkbox" value="date" onChange={handleAttributeChange} checked={selectedAttributes.includes('date')} />
+          Data
         </label>
         <label>
-          <input type="checkbox" value="total_vaccinations" onChange={handleAttributeChange} /> Total Vaccinations
+          <input type="checkbox" value="location" onChange={handleAttributeChange} checked={selectedAttributes.includes('location')} />
+          Lokalizacja
         </label>
-        {/* Dodaj więcej pól wyboru atrybutów w formularzu */}
+        <label>
+          <input type="checkbox" value="total_vaccinations" onChange={handleAttributeChange} checked={selectedAttributes.includes('total_vaccinations')} />
+          Całkowite szczepienia
+        </label>
+        <label>
+          <input type="checkbox" value="people_vaccinated" onChange={handleAttributeChange} checked={selectedAttributes.includes('people_vaccinated')} />
+          Liczba zaszczepionych osób
+        </label>
+        <label>
+          <input type="checkbox" value="people_fully_vaccinated" onChange={handleAttributeChange} checked={selectedAttributes.includes('people_fully_vaccinated')} />
+          Liczba w pełni zaszczepionych osób
+        </label>
+        <label>
+          <input type="checkbox" value="total_boosters" onChange={handleAttributeChange} checked={selectedAttributes.includes('total_boosters')} />
+          Łączna liczba dawek przypominających
+        </label>
+        <label>
+          <input type="checkbox" value="daily_vaccinations_raw" onChange={handleAttributeChange} checked={selectedAttributes.includes('daily_vaccinations_raw')} />
+          Dzienna liczba szczepień (surowe dane)
+        </label>
+        <label>
+          <input type="checkbox" value="daily_vaccinations" onChange={handleAttributeChange} checked={selectedAttributes.includes('daily_vaccinations')} />
+          Średnia dzienna liczba szczepień
+        </label>
+        <label>
+          <input type="checkbox" value="total_vaccinations_per_hundred" onChange={handleAttributeChange} checked={selectedAttributes.includes('total_vaccinations_per_hundred')} />
+          Całkowite szczepienia na 100 osób
+        </label>
+        <label>
+          <input type="checkbox" value="people_vaccinated_per_hundred" onChange={handleAttributeChange} checked={selectedAttributes.includes('people_vaccinated_per_hundred')} />
+          Liczba zaszczepionych osób na 100 osób
+        </label>
+        <label>
+          <input type="checkbox" value="people_fully_vaccinated_per_hundred" onChange={handleAttributeChange} checked={selectedAttributes.includes('people_fully_vaccinated_per_hundred')} />
+          Liczba w pełni zaszczepionych osób na 100 osób
+        </label>
+        <label>
+          <input type="checkbox" value="total_boosters_per_hundred" onChange={handleAttributeChange} checked={selectedAttributes.includes('total_boosters_per_hundred')} />
+          Łączna liczba dawek przypominających na 100 osób
+        </label>
+        <label>
+          <input type="checkbox" value="daily_vaccinations_per_million" onChange={handleAttributeChange} checked={selectedAttributes.includes('daily_vaccinations_per_million')} />
+          Dzienna liczba szczepień na milion osób
+        </label>
+        <label>
+          <input type="checkbox" value="daily_people_vaccinated" onChange={handleAttributeChange} checked={selectedAttributes.includes('daily_people_vaccinated')} />
+          Dzienna liczba zaszczepionych osób
+        </label>
+        <label>
+          <input type="checkbox" value="daily_people_vaccinated_per_hundred" onChange={handleAttributeChange} checked={selectedAttributes.includes('daily_people_vaccinated_per_hundred')} />
+          Dzienna liczba zaszczepionych osób na 100 osób
+        </label>
+        <div>
+          <h3>Wybierz kraje:</h3>
+          {availableCountries.map((country) => (
+            <label key={country}>
+              <input type="checkbox" value={country} onChange={handleCountryChange} checked={selectedCountries.includes(country)} />
+              {country}
+            </label>
+          ))}
+        </div>
       </form>
-      <Chart data={data} options={options} selectedAttributes={selectedAttributes} /> {/* Przekazujemy wybrane atrybuty do komponentu wykresu */}
       <div>
         <button onClick={handlePrevPage}>Poprzednia strona</button>
         <button onClick={handleNextPage}>Następna strona</button>
@@ -113,6 +173,21 @@ function Dashboard() {
             <option value={100}>100</option>
           </select>
         </label>
+      </div>
+      <div>
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            {selectedCountries.map((country) => (
+              <Line key={country} type="monotone" dataKey={`total_vaccinations_${country}`} stroke="#8884d8" activeDot={{ r: 8 }} />
+            ))}
+            {/* Dodaj więcej linii dla innych atrybutów */}
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
