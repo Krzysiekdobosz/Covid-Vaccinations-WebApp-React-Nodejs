@@ -81,74 +81,75 @@ app.get('/countries', async (req, res) => {
     res.status(500).send('An error occurred while fetching countries.');
   }
 });
-
 app.get('/dataall', async (req, res) => {
   try {
-    const selectedCountry = req.query.country || 'Poland';
+    const selectedCountries = req.query.countries || ['Poland']; // Początkowo wybieramy Polskę
 
-    const data = await Vaccination.findAll({
-      where: { location: selectedCountry }
+    const dataPromises = selectedCountries.map(async (country) => {
+      const countryData = await Vaccination.findAll({
+        where: { location: country }
+      });
+
+      if (!countryData || countryData.length === 0) {
+        return null;
+      }
+
+      const sortedData = countryData.sort((a, b) => new Date(a.date) - new Date(b.date));
+      const latestData = sortedData[sortedData.length - 1];
+
+      const averages = sortedData.reduce(
+        (acc, record) => {
+          acc.daily_vaccinations_raw += record.daily_vaccinations_raw || 0;
+          acc.daily_vaccinations += record.daily_vaccinations || 0;
+          acc.total_vaccinations_per_hundred += record.total_vaccinations_per_hundred || 0;
+          acc.people_vaccinated_per_hundred += record.people_vaccinated_per_hundred || 0;
+          acc.people_fully_vaccinated_per_hundred += record.people_fully_vaccinated_per_hundred || 0;
+          acc.total_boosters_per_hundred += record.total_boosters_per_hundred || 0;
+          acc.daily_vaccinations_per_million += record.daily_vaccinations_per_million || 0;
+          acc.daily_people_vaccinated += record.daily_people_vaccinated || 0;
+          acc.daily_people_vaccinated_per_hundred += record.daily_people_vaccinated_per_hundred || 0;
+          acc.count += 1;
+          return acc;
+        },
+        {
+          daily_vaccinations_raw: 0,
+          daily_vaccinations: 0,
+          total_vaccinations_per_hundred: 0,
+          people_vaccinated_per_hundred: 0,
+          people_fully_vaccinated_per_hundred: 0,
+          total_boosters_per_hundred: 0,
+          daily_vaccinations_per_million: 0,
+          daily_people_vaccinated: 0,
+          daily_people_vaccinated_per_hundred: 0,
+          count: 0
+        }
+      );
+
+      return {
+        location: country,
+        total_vaccinations: latestData.total_vaccinations,
+        people_vaccinated: latestData.people_vaccinated,
+        people_fully_vaccinated: latestData.people_fully_vaccinated,
+        total_boosters: latestData.total_boosters,
+        avg_daily_vaccinations_raw: averages.daily_vaccinations_raw / averages.count,
+        avg_daily_vaccinations: averages.daily_vaccinations / averages.count,
+        avg_total_vaccinations_per_hundred: averages.total_vaccinations_per_hundred / averages.count,
+        avg_people_vaccinated_per_hundred: averages.people_vaccinated_per_hundred / averages.count,
+        avg_people_fully_vaccinated_per_hundred: averages.people_fully_vaccinated_per_hundred / averages.count,
+        avg_total_boosters_per_hundred: averages.total_boosters_per_hundred / averages.count,
+        avg_daily_vaccinations_per_million: averages.daily_vaccinations_per_million / averages.count,
+        avg_daily_people_vaccinated: averages.daily_people_vaccinated / averages.count,
+        avg_daily_people_vaccinated_per_hundred: averages.daily_people_vaccinated_per_hundred / averages.count,
+      };
     });
 
-    if (!data || data.length === 0) {
-      return res.status(404).send('No data for the selected country.');
-    }
-
-    const sortedData = data.sort((a, b) => new Date(a.date) - new Date(b.date));
-    const latestData = sortedData[sortedData.length - 1];
-
-    const averages = sortedData.reduce(
-      (acc, record) => {
-        acc.daily_vaccinations_raw += record.daily_vaccinations_raw || 0;
-        acc.daily_vaccinations += record.daily_vaccinations || 0;
-        acc.total_vaccinations_per_hundred += record.total_vaccinations_per_hundred || 0;
-        acc.people_vaccinated_per_hundred += record.people_vaccinated_per_hundred || 0;
-        acc.people_fully_vaccinated_per_hundred += record.people_fully_vaccinated_per_hundred || 0;
-        acc.total_boosters_per_hundred += record.total_boosters_per_hundred || 0;
-        acc.daily_vaccinations_per_million += record.daily_vaccinations_per_million || 0;
-        acc.daily_people_vaccinated += record.daily_people_vaccinated || 0;
-        acc.daily_people_vaccinated_per_hundred += record.daily_people_vaccinated_per_hundred || 0;
-        acc.count += 1;
-        return acc;
-      },
-      {
-        daily_vaccinations_raw: 0,
-        daily_vaccinations: 0,
-        total_vaccinations_per_hundred: 0,
-        people_vaccinated_per_hundred: 0,
-        people_fully_vaccinated_per_hundred: 0,
-        total_boosters_per_hundred: 0,
-        daily_vaccinations_per_million: 0,
-        daily_people_vaccinated: 0,
-        daily_people_vaccinated_per_hundred: 0,
-        count: 0
-      }
-    );
-
-    const countryMetrics = {
-      location: selectedCountry,
-      total_vaccinations: latestData.total_vaccinations,
-      people_vaccinated: latestData.people_vaccinated,
-      people_fully_vaccinated: latestData.people_fully_vaccinated,
-      total_boosters: latestData.total_boosters,
-      avg_daily_vaccinations_raw: averages.daily_vaccinations_raw / averages.count,
-      avg_daily_vaccinations: averages.daily_vaccinations / averages.count,
-      avg_total_vaccinations_per_hundred: averages.total_vaccinations_per_hundred / averages.count,
-      avg_people_vaccinated_per_hundred: averages.people_vaccinated_per_hundred / averages.count,
-      avg_people_fully_vaccinated_per_hundred: averages.people_fully_vaccinated_per_hundred / averages.count,
-      avg_total_boosters_per_hundred: averages.total_boosters_per_hundred / averages.count,
-      avg_daily_vaccinations_per_million: averages.daily_vaccinations_per_million / averages.count,
-      avg_daily_people_vaccinated: averages.daily_people_vaccinated / averages.count,
-      avg_daily_people_vaccinated_per_hundred: averages.daily_people_vaccinated_per_hundred / averages.count,
-    };
-
-    res.json(countryMetrics);
+    const countryData = await Promise.all(dataPromises);
+    res.json(countryData.filter(data => data !== null));
   } catch (error) {
     console.error('Error fetching data:', error);
     res.status(500).send('An error occurred while fetching data.');
   }
 });
-
 app.post('/upload', async (req, res) => {
   try {
     const { fileName } = req.body;
