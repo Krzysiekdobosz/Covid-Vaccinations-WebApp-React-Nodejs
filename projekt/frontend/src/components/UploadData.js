@@ -17,7 +17,7 @@ function UploadData() {
     <div>
       <h2>Upload Data</h2>
       <button onClick={() => handleUpload('vaccinations.csv')}>Upload Vaccinations</button>
-      <button onClick={() => handleUpload('covid-hospitalizations.csv')}>Upload Cases</button>
+      {/* <button onClick={() => handleUpload('covid-hospitalizations.csv')}>Upload Cases</button> */}
       {message && <p>{message}</p>}
     </div>
   );
