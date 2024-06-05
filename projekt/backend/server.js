@@ -14,13 +14,13 @@ const { exec } = require('child_process');
 
 const { Op } = require('sequelize');
 
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(bodyParser.json());
-const CHUNK_SIZE = 500; // Ustal wielkość porcji danych
+
+const CHUNK_SIZE = 500;
 
 const uploadCsv = async (filePath, Model) => {
   const results = [];
@@ -34,7 +34,7 @@ const uploadCsv = async (filePath, Model) => {
             const chunk = results.slice(i, i + CHUNK_SIZE);
             await Model.bulkCreate(chunk);
           }
-          resolve('Dane zostały pomyślnie zapisane do bazy danych.');
+          resolve('Data successfully saved to the database.');
         } catch (error) {
           reject(error);
         }
@@ -42,18 +42,7 @@ const uploadCsv = async (filePath, Model) => {
   });
 };
 
-
-
-/// pobranie juz z mysql vaccinations 
 const Vaccination = require('./models/Vaccination')(sequelize, require('sequelize').DataTypes);
-
-
-
-app.use(cors());
-app.use(bodyParser.json());
-// Aktualizacja endpointu /data, aby zwracał paginowane wyniki
-
-
 
 app.get('/data', async (req, res) => {
   try {
@@ -75,8 +64,8 @@ app.get('/data', async (req, res) => {
     
     res.json(data);
   } catch (error) {
-    console.error('Błąd podczas pobierania danych:', error);
-    res.status(500).send('Wystąpił błąd podczas pobierania danych.');
+    console.error('Error fetching data:', error);
+    res.status(500).send('An error occurred while fetching data.');
   }
 });
 
@@ -88,80 +77,88 @@ app.get('/countries', async (req, res) => {
     });
     res.json(countries.map(country => country.location));
   } catch (error) {
-    console.error('Błąd podczas pobierania krajów:', error);
-    res.status(500).send('Wystąpił błąd podczas pobierania krajów.');
+    console.error('Error fetching countries:', error);
+    res.status(500).send('An error occurred while fetching countries.');
   }
 });
-
-
-//próba pobrania wszystkich danych
 
 app.get('/dataall', async (req, res) => {
   try {
-    let selectedCountry = req.query.country || 'Poland'; // Domyślnie wybieramy Polskę
+    const selectedCountry = req.query.country || 'Poland';
+
     const data = await Vaccination.findAll({
-      where: {
-        location: selectedCountry
-      },
-      attributes: [
-        'location',
-        [sequelize.fn('sum', sequelize.col('total_vaccinations')), 'total_vaccinations'],
-        [sequelize.fn('sum', sequelize.col('people_vaccinated')), 'people_vaccinated'],
-        [sequelize.fn('sum', sequelize.col('people_fully_vaccinated')), 'people_fully_vaccinated'],
-        [sequelize.fn('sum', sequelize.col('total_boosters')), 'total_boosters'],
-        [sequelize.fn('avg', sequelize.col('daily_vaccinations_raw')), 'avg_daily_vaccinations_raw'],
-        [sequelize.fn('avg', sequelize.col('daily_vaccinations')), 'avg_daily_vaccinations'],
-        [sequelize.fn('avg', sequelize.col('total_vaccinations_per_hundred')), 'avg_total_vaccinations_per_hundred'],
-        [sequelize.fn('avg', sequelize.col('people_vaccinated_per_hundred')), 'avg_people_vaccinated_per_hundred'],
-        [sequelize.fn('avg', sequelize.col('people_fully_vaccinated_per_hundred')), 'avg_people_fully_vaccinated_per_hundred'],
-        [sequelize.fn('avg', sequelize.col('total_boosters_per_hundred')), 'avg_total_boosters_per_hundred'],
-        [sequelize.fn('avg', sequelize.col('daily_vaccinations_per_million')), 'avg_daily_vaccinations_per_million'],
-        [sequelize.fn('avg', sequelize.col('daily_people_vaccinated')), 'avg_daily_people_vaccinated'],
-        [sequelize.fn('avg', sequelize.col('daily_people_vaccinated_per_hundred')), 'avg_daily_people_vaccinated_per_hundred']
-      ]
+      where: { location: selectedCountry }
     });
 
-    if (!data) {
-      return res.status(404).send('Brak danych dla wybranego kraju.');
+    if (!data || data.length === 0) {
+      return res.status(404).send('No data for the selected country.');
     }
 
-    // Zwracamy tylko pierwszy rekord, ponieważ wszystkie wartości są zsumowane w jednym wierszu
-    const averagedData = {
-      ...data[0].dataValues,
-      avg_daily_vaccinations_raw: data[0].dataValues.avg_daily_vaccinations_raw / data.length,
-      avg_daily_vaccinations: data[0].dataValues.avg_daily_vaccinations / data.length,
-      avg_total_vaccinations_per_hundred: data[0].dataValues.avg_total_vaccinations_per_hundred / data.length,
-      avg_people_vaccinated_per_hundred: data[0].dataValues.avg_people_vaccinated_per_hundred / data.length,
-      avg_people_fully_vaccinated_per_hundred: data[0].dataValues.avg_people_fully_vaccinated_per_hundred / data.length,
-      avg_total_boosters_per_hundred: data[0].dataValues.avg_total_boosters_per_hundred / data.length,
-      avg_daily_vaccinations_per_million: data[0].dataValues.avg_daily_vaccinations_per_million / data.length,
-      avg_daily_people_vaccinated: data[0].dataValues.avg_daily_people_vaccinated / data.length,
-      avg_daily_people_vaccinated_per_hundred: data[0].dataValues.avg_daily_people_vaccinated_per_hundred / data.length
+    const sortedData = data.sort((a, b) => new Date(a.date) - new Date(b.date));
+    const latestData = sortedData[sortedData.length - 1];
+
+    const averages = sortedData.reduce(
+      (acc, record) => {
+        acc.daily_vaccinations_raw += record.daily_vaccinations_raw || 0;
+        acc.daily_vaccinations += record.daily_vaccinations || 0;
+        acc.total_vaccinations_per_hundred += record.total_vaccinations_per_hundred || 0;
+        acc.people_vaccinated_per_hundred += record.people_vaccinated_per_hundred || 0;
+        acc.people_fully_vaccinated_per_hundred += record.people_fully_vaccinated_per_hundred || 0;
+        acc.total_boosters_per_hundred += record.total_boosters_per_hundred || 0;
+        acc.daily_vaccinations_per_million += record.daily_vaccinations_per_million || 0;
+        acc.daily_people_vaccinated += record.daily_people_vaccinated || 0;
+        acc.daily_people_vaccinated_per_hundred += record.daily_people_vaccinated_per_hundred || 0;
+        acc.count += 1;
+        return acc;
+      },
+      {
+        daily_vaccinations_raw: 0,
+        daily_vaccinations: 0,
+        total_vaccinations_per_hundred: 0,
+        people_vaccinated_per_hundred: 0,
+        people_fully_vaccinated_per_hundred: 0,
+        total_boosters_per_hundred: 0,
+        daily_vaccinations_per_million: 0,
+        daily_people_vaccinated: 0,
+        daily_people_vaccinated_per_hundred: 0,
+        count: 0
+      }
+    );
+
+    const countryMetrics = {
+      location: selectedCountry,
+      total_vaccinations: latestData.total_vaccinations,
+      people_vaccinated: latestData.people_vaccinated,
+      people_fully_vaccinated: latestData.people_fully_vaccinated,
+      total_boosters: latestData.total_boosters,
+      avg_daily_vaccinations_raw: averages.daily_vaccinations_raw / averages.count,
+      avg_daily_vaccinations: averages.daily_vaccinations / averages.count,
+      avg_total_vaccinations_per_hundred: averages.total_vaccinations_per_hundred / averages.count,
+      avg_people_vaccinated_per_hundred: averages.people_vaccinated_per_hundred / averages.count,
+      avg_people_fully_vaccinated_per_hundred: averages.people_fully_vaccinated_per_hundred / averages.count,
+      avg_total_boosters_per_hundred: averages.total_boosters_per_hundred / averages.count,
+      avg_daily_vaccinations_per_million: averages.daily_vaccinations_per_million / averages.count,
+      avg_daily_people_vaccinated: averages.daily_people_vaccinated / averages.count,
+      avg_daily_people_vaccinated_per_hundred: averages.daily_people_vaccinated_per_hundred / averages.count,
     };
 
-    res.json(averagedData);
+    res.json(countryMetrics);
   } catch (error) {
-    console.error('Błąd podczas pobierania danych:', error);
-    res.status(500).send('Wystąpił błąd podczas pobierania danych.');
+    console.error('Error fetching data:', error);
+    res.status(500).send('An error occurred while fetching data.');
   }
 });
 
-
-
-//
-
-
-// Endpoint do przesyłania pliku CSV
 app.post('/upload', async (req, res) => {
   try {
-    const { fileName } = req.body; // Odbieramy nazwę pliku z żądania
-    const filePath = path.join(__dirname, 'data', fileName); // Tworzymy ścieżkę do pliku
+    const { fileName } = req.body;
+    const filePath = path.join(__dirname, 'data', fileName);
 
     const message = await uploadCsv(filePath, Vaccination);
     res.status(200).send(message);
   } catch (error) {
-    console.error('Błąd podczas przetwarzania pliku CSV:', error);
-    res.status(500).send('Wystąpił błąd podczas przetwarzania pliku CSV.');
+    console.error('Error processing CSV file:', error);
+    res.status(500).send('An error occurred while processing the CSV file.');
   }
 });
 
@@ -169,7 +166,6 @@ app.get('/', (req, res) => {
   res.send('Welcome to the backend!');
 });
 
-// Rejestracja użytkownika
 app.post('/register', [
   body('username').isLength({ min: 3 }),
   body('password').isLength({ min: 6 })
@@ -190,7 +186,6 @@ app.post('/register', [
   }
 });
 
-// Logowanie użytkownika
 app.post('/login', [
   body('username').isLength({ min: 3 }),
   body('password').isLength({ min: 6 })
@@ -215,8 +210,6 @@ app.post('/login', [
   }
 });
 
-//
-///pobieranie wykresy
 app.post('/generate-plot', (req, res) => {
   const { plotType } = req.body;
   const csvFilePath = path.join(__dirname, 'data', 'vaccinations.csv');
@@ -235,20 +228,6 @@ app.post('/generate-plot', (req, res) => {
 
 app.use('/data', express.static(path.join(__dirname, 'data')));
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-////
 sequelize.sync().then(() => {
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

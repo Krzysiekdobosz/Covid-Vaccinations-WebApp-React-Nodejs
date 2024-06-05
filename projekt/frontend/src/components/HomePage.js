@@ -12,7 +12,7 @@ function HomePage() {
         const response = await axios.get(`http://localhost:5000/dataall?country=${selectedCountry}`);
         setData(response.data);
       } catch (error) {
-        console.error('Błąd podczas pobierania danych:', error);
+        console.error('Error fetching data:', error);
       }
     };
 
@@ -25,7 +25,7 @@ function HomePage() {
         const response = await axios.get('http://localhost:5000/countries');
         setCountryList(response.data);
       } catch (error) {
-        console.error('Błąd podczas pobierania listy krajów:', error);
+        console.error('Error fetching country list:', error);
       }
     };
 
@@ -38,7 +38,7 @@ function HomePage() {
 
   const formatNumber = (number) => {
     if (typeof number === 'number') {
-      return number.toFixed(1);
+      return number.toLocaleString(undefined, { maximumFractionDigits: 2 });
     }
     return number;
   };
@@ -46,7 +46,7 @@ function HomePage() {
   return (
     <div>
       <h2>Home Page</h2>
-      <p>Wybierz kraj:</p>
+      <p>Select country:</p>
       <select value={selectedCountry} onChange={handleCountryChange}>
         {countryList.map((country, index) => (
           <option key={index} value={country}>
@@ -61,15 +61,14 @@ function HomePage() {
           <p>People Vaccinated: {formatNumber(data.people_vaccinated)}</p>
           <p>People Fully Vaccinated: {formatNumber(data.people_fully_vaccinated)}</p>
           <p>Total Boosters: {formatNumber(data.total_boosters)}</p>
-          <p>Daily Vaccinations Raw: {formatNumber(data.avg_daily_vaccinations_raw)}</p>
-          <p>Daily Vaccinations: {formatNumber(data.avg_daily_vaccinations)}</p>
-          <p>Total Vaccinations Per Hundred: {formatNumber(data.avg_total_vaccinations_per_hundred)}</p>
-          <p>People Vaccinated Per Hundred: {formatNumber(data.avg_people_vaccinated_per_hundred)}</p>
-          <p>People Fully Vaccinated Per Hundred: {formatNumber(data.avg_people_fully_vaccinated_per_hundred)}</p>
-          <p>Total Boosters Per Hundred: {formatNumber(data.avg_total_boosters_per_hundred)}</p>
-          <p>Daily Vaccinations Per Million: {formatNumber(data.avg_daily_vaccinations_per_million)}</p>
-          <p>Daily People Vaccinated: {formatNumber(data.avg_daily_people_vaccinated)}</p>
-          <p>Daily People Vaccinated Per Hundred: {formatNumber(data.avg_daily_people_vaccinated_per_hundred)}</p>
+          <p>Average Daily Vaccinations: {formatNumber(data.avg_daily_vaccinations)}</p>
+          <p>Average Total Vaccinations Per Hundred: {formatNumber(data.avg_total_vaccinations_per_hundred)}</p>
+          <p>Average People Vaccinated Per Hundred: {formatNumber(data.avg_people_vaccinated_per_hundred)}</p>
+          <p>Average People Fully Vaccinated Per Hundred: {formatNumber(data.avg_people_fully_vaccinated_per_hundred)}</p>
+          <p>Average Total Boosters Per Hundred: {formatNumber(data.avg_total_boosters_per_hundred)}</p>
+          <p>Average Daily Vaccinations Per Million: {formatNumber(data.avg_daily_vaccinations_per_million)}</p>
+          <p>Average Daily People Vaccinated: {formatNumber(data.avg_daily_people_vaccinated)}</p>
+          <p>Average Daily People Vaccinated Per Hundred: {formatNumber(data.avg_daily_people_vaccinated_per_hundred)}</p>
         </div>
       )}
     </div>
