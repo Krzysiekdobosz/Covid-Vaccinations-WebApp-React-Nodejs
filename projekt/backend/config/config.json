@@ -3,7 +3,7 @@
     "username": "root",
     "password": "",
     "database": "coronadb",
-    "host": "127.0.0.1",
+    "host": "172.0.0.1",
     "dialect": "mysql"
   },
   "test": {
